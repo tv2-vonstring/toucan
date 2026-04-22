@@ -30,6 +30,7 @@ namespace toucan
             V408,
             V410,
             AV1,
+            RAWVIDEO,
 
             Count,
             First = MJPEG

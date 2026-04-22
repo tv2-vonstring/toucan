@@ -12,7 +12,10 @@ extern "C"
 }
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
+#include <sstream>
+#include <stdexcept>
 
 namespace toucan
 {
@@ -49,7 +52,8 @@ namespace toucan
                 "V308",
                 "V408",
                 "V410",
-                "AV1"
+                "AV1",
+                "RAWVIDEO"
             };
 
             const std::vector<AVCodecID> videoCodecIds =
@@ -59,7 +63,8 @@ namespace toucan
                 AV_CODEC_ID_V308,
                 AV_CODEC_ID_V408,
                 AV_CODEC_ID_V410,
-                AV_CODEC_ID_AV1
+                AV_CODEC_ID_AV1,
+                AV_CODEC_ID_RAWVIDEO
             };
 
             const std::vector<int> videoCodecProfiles =
@@ -69,7 +74,8 @@ namespace toucan
                 AV_PROFILE_UNKNOWN,
                 AV_PROFILE_UNKNOWN,
                 AV_PROFILE_UNKNOWN,
-                AV_PROFILE_AV1_MAIN
+                AV_PROFILE_AV1_MAIN,
+                AV_PROFILE_UNKNOWN
             };
 
             std::vector<std::pair<int, std::string> > _getAudioCodecs()
@@ -114,6 +120,20 @@ namespace toucan
                 AV_SAMPLE_FMT_S32,
                 AV_SAMPLE_FMT_FLTP
             };
+
+            bool iequals(const std::string& a, const std::string& b)
+            {
+                if (a.size() != b.size()) return false;
+                for (size_t i = 0; i < a.size(); ++i)
+                {
+                    if (std::tolower(static_cast<unsigned char>(a[i])) !=
+                        std::tolower(static_cast<unsigned char>(b[i])))
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
         }
 
         std::vector<VideoCodec> getVideoCodecs()
@@ -149,10 +169,21 @@ namespace toucan
         
         void fromString(const std::string& s, VideoCodec& value)
         {
-            const auto i = std::find(videoCodecStrings.begin(), videoCodecStrings.end(), s);
-            value = i != videoCodecStrings.end() ?
-                static_cast<VideoCodec>(i - videoCodecStrings.begin()) :
-                VideoCodec::First;
+            const auto i = std::find_if(
+                videoCodecStrings.begin(), videoCodecStrings.end(),
+                [&s](const std::string& v) { return iequals(s, v); });
+            if (i == videoCodecStrings.end())
+            {
+                std::stringstream ss;
+                ss << "Unknown video codec: \"" << s << "\". Options: ";
+                for (size_t j = 0; j < videoCodecStrings.size(); ++j)
+                {
+                    if (j > 0) ss << ", ";
+                    ss << videoCodecStrings[j];
+                }
+                throw std::runtime_error(ss.str());
+            }
+            value = static_cast<VideoCodec>(i - videoCodecStrings.begin());
         }
 
         AVCodecID getVideoCodecId(VideoCodec value)
@@ -198,10 +229,21 @@ namespace toucan
 
         void fromString(const std::string& s, AudioCodec& value)
         {
-            const auto i = std::find(audioCodecStrings.begin(), audioCodecStrings.end(), s);
-            value = i != audioCodecStrings.end() ?
-                static_cast<AudioCodec>(i - audioCodecStrings.begin()) :
-                AudioCodec::First;
+            const auto i = std::find_if(
+                audioCodecStrings.begin(), audioCodecStrings.end(),
+                [&s](const std::string& v) { return iequals(s, v); });
+            if (i == audioCodecStrings.end())
+            {
+                std::stringstream ss;
+                ss << "Unknown audio codec: \"" << s << "\". Options: ";
+                for (size_t j = 0; j < audioCodecStrings.size(); ++j)
+                {
+                    if (j > 0) ss << ", ";
+                    ss << audioCodecStrings[j];
+                }
+                throw std::runtime_error(ss.str());
+            }
+            value = static_cast<AudioCodec>(i - audioCodecStrings.begin());
         }
 
         AVCodecID getAudioCodecId(AudioCodec value)

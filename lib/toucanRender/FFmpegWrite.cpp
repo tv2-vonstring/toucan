@@ -94,7 +94,16 @@ namespace toucan
             {
                 throw std::runtime_error("Cannot allocate stream");
             }
-            if (!avCodec->pix_fmts)
+            AVPixelFormat codecPixFmt = AV_PIX_FMT_NONE;
+            if (avCodec->pix_fmts)
+            {
+                codecPixFmt = avCodec->pix_fmts[0];
+            }
+            else if (avCodec->id == AV_CODEC_ID_RAWVIDEO)
+            {
+                codecPixFmt = AV_PIX_FMT_RGB24;
+            }
+            else
             {
                 throw std::runtime_error("No pixel formats available");
             }
@@ -104,7 +113,7 @@ namespace toucan
             _avCodecContext->width = spec.width;
             _avCodecContext->height = spec.height;
             _avCodecContext->sample_aspect_ratio = AVRational({ 1, 1 });
-            _avCodecContext->pix_fmt = avCodec->pix_fmts[0];
+            _avCodecContext->pix_fmt = codecPixFmt;
             const auto rational = ftk::toRational(timeRange.duration().rate());
             _avCodecContext->time_base = { rational.second, rational.first };
             _avCodecContext->framerate = { rational.first, rational.second };
