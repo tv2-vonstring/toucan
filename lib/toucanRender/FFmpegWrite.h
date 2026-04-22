@@ -37,12 +37,33 @@ namespace toucan
                 int audioChannelCount = 0,
                 AudioCodec audioCodec = AudioCodec::PCM_S16LE);
 
+            // Mux to stdout ("pipe:1") using an explicit libavformat format name
+            // (e.g. "matroska", "nut", "mov").
+            Write(
+                const std::string& formatName,
+                const OIIO::ImageSpec&,
+                const OTIO_NS::TimeRange&,
+                VideoCodec,
+                int audioSampleRate = 0,
+                int audioChannelCount = 0,
+                AudioCodec audioCodec = AudioCodec::PCM_S16LE);
+
             virtual ~Write();
 
             void writeImage(const OIIO::ImageBuf&, const OTIO_NS::RationalTime&);
             void writeAudio(const AudioBuffer&);
 
         private:
+            void _init(
+                const char* formatName,
+                const char* url,
+                const OIIO::ImageSpec&,
+                const OTIO_NS::TimeRange&,
+                VideoCodec,
+                int audioSampleRate,
+                int audioChannelCount,
+                AudioCodec audioCodec);
+
             void _encodeVideo(AVFrame*);
             void _encodeAudio(AVFrame*);
             void _flushAudioFifo();

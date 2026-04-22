@@ -57,6 +57,7 @@ namespace toucan
             std::shared_ptr<ftk::CmdLineFlagOption> printSize;
             std::shared_ptr<ftk::CmdLineValueOption<std::string> > raw;
             std::shared_ptr<ftk::CmdLineValueOption<std::string> > y4m;
+            std::shared_ptr<ftk::CmdLineValueOption<std::string> > mux;
             std::shared_ptr<ftk::CmdLineFlagOption> verbose;
 
             std::shared_ptr<ftk::CmdLineValueOption<std::string> > audioCodec;

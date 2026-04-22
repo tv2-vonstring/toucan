@@ -35,6 +35,38 @@ namespace toucan
             _audioSampleRate(audioSampleRate),
             _audioChannelCount(audioChannelCount)
         {
+            const std::string url = _path.string();
+            _init(nullptr, url.c_str(), spec, timeRange, videoCodec,
+                audioSampleRate, audioChannelCount, audioCodec);
+        }
+
+        Write::Write(
+            const std::string& formatName,
+            const OIIO::ImageSpec& spec,
+            const OTIO_NS::TimeRange& timeRange,
+            VideoCodec videoCodec,
+            int audioSampleRate,
+            int audioChannelCount,
+            AudioCodec audioCodec) :
+            _spec(spec),
+            _timeRange(timeRange),
+            _audioSampleRate(audioSampleRate),
+            _audioChannelCount(audioChannelCount)
+        {
+            _init(formatName.c_str(), "pipe:1", spec, timeRange, videoCodec,
+                audioSampleRate, audioChannelCount, audioCodec);
+        }
+
+        void Write::_init(
+            const char* formatName,
+            const char* url,
+            const OIIO::ImageSpec& spec,
+            const OTIO_NS::TimeRange& timeRange,
+            VideoCodec videoCodec,
+            int audioSampleRate,
+            int audioChannelCount,
+            AudioCodec audioCodec)
+        {
             av_log_set_level(AV_LOG_QUIET);
             //av_log_set_level(AV_LOG_VERBOSE);
             //av_log_set_callback(log);
@@ -42,7 +74,7 @@ namespace toucan
             AVCodecID avCodecID = getVideoCodecId(videoCodec);
             int avProfile = getVideoCodecProfile(videoCodec);
 
-            int r = avformat_alloc_output_context2(&_avFormatContext, NULL, NULL, _path.string().c_str());
+            int r = avformat_alloc_output_context2(&_avFormatContext, NULL, formatName, formatName ? NULL : url);
             if (r < 0)
             {
                 throw std::runtime_error(getErrorLabel(r));
@@ -198,9 +230,9 @@ namespace toucan
                 }
             }
 
-            //av_dump_format(_avFormatContext, 0, _path.string().c_str(), 1);
+            //av_dump_format(_avFormatContext, 0, url, 1);
 
-            r = avio_open(&_avFormatContext->pb, _path.string().c_str(), AVIO_FLAG_WRITE);
+            r = avio_open(&_avFormatContext->pb, url, AVIO_FLAG_WRITE);
             if (r < 0)
             {
                 throw std::runtime_error(getErrorLabel(r));

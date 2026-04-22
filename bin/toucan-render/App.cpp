@@ -54,7 +54,7 @@ namespace toucan
             "Input .otio file.");
         _cmdLine.output = ftk::CmdLineValueArg<std::string>::create(
             "output",
-            "Output image or movie file. Use a dash ('-') to write raw frames or y4m to stdout.");
+            "Output image or movie file. Use a dash ('-') with -raw, -y4m, or -mux to write to stdout.");
 
         std::vector<std::string> rawList;
         for (const auto& spec : rawSpecs)
@@ -96,6 +96,14 @@ namespace toucan
             "",
             std::optional<std::string>(),
             ftk::join(y4mList, ", "));
+        _cmdLine.mux = ftk::CmdLineValueOption<std::string>::create(
+            std::vector<std::string>{ "-mux" },
+            "Mux video and audio into a container written to stdout. "
+            "Format is a libavformat name such as matroska, nut, mov, or mp4. "
+            "Combine with -vcodec (rawvideo is a good choice when the downstream "
+            "consumer re-encodes).",
+            "",
+            std::optional<std::string>());
         _cmdLine.verbose = ftk::CmdLineFlagOption::create(
             std::vector<std::string>{ "-v" },
             "Print verbose output.");
@@ -137,6 +145,7 @@ namespace toucan
                 _cmdLine.printSize,
                 _cmdLine.raw,
                 _cmdLine.y4m,
+                _cmdLine.mux,
                 _cmdLine.verbose,
                 _cmdLine.audioCodec,
                 _cmdLine.audioSampleRate,
@@ -148,6 +157,16 @@ namespace toucan
         if (_cmdLine.output->hasValue() && _cmdLine.output->getValue() == "-")
         {
             _cmdLine.outputRaw = true;
+        }
+
+        const int stdoutModeCount =
+            (_cmdLine.raw->hasValue() ? 1 : 0) +
+            (_cmdLine.y4m->hasValue() ? 1 : 0) +
+            (_cmdLine.mux->hasValue() ? 1 : 0);
+        if (stdoutModeCount > 1)
+        {
+            throw std::runtime_error(
+                "Options -raw, -y4m, and -mux are mutually exclusive.");
         }
     }
 
@@ -254,9 +273,25 @@ namespace toucan
 
         const bool includeAudio = _audioGraph && _audioGraph->hasAudio();
 
-        // Open the movie file.
+        // Open the movie file, or a muxed stdout container.
         std::shared_ptr<ffmpeg::Write> ffWrite;
-        if (hasExtension(outputPath.extension().string(), MovieReadNode::getExtensions()))
+        if (_cmdLine.mux->hasValue() && _cmdLine.outputRaw)
+        {
+            ffmpeg::VideoCodec videoCodec = ffmpeg::VideoCodec::MJPEG;
+            if (_cmdLine.videoCodec->hasValue())
+            {
+                ffmpeg::fromString(_cmdLine.videoCodec->getValue(), videoCodec);
+            }
+            ffWrite = std::make_shared<ffmpeg::Write>(
+                _cmdLine.mux->getValue(),
+                OIIO::ImageSpec(imageSize.x, imageSize.y, 3),
+                timeRange,
+                videoCodec,
+                includeAudio ? audioSampleRate : 0,
+                includeAudio ? audioChannelCount : 0,
+                audioCodec);
+        }
+        else if (hasExtension(outputPath.extension().string(), MovieReadNode::getExtensions()))
         {
             ffmpeg::VideoCodec videoCodec = ffmpeg::VideoCodec::MJPEG;
             if (_cmdLine.videoCodec->hasValue())
@@ -324,6 +359,10 @@ namespace toucan
                             outputPath.extension().string());
                         buf.write(fileName);
                     }
+                }
+                else if (ffWrite)
+                {
+                    ffWrite->writeImage(buf, time);
                 }
                 else if (_cmdLine.raw->hasValue())
                 {
