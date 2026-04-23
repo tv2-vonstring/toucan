@@ -58,7 +58,6 @@ if(NOT SWRESAMPLE_LIBRARY)
     find_library(SWRESAMPLE_LIBRARY swresample)
 endif()
 set(LIBS_PUBLIC
-    toucanResource
     ftk::ftkCore
     OTIO::opentimelineio
     OTIO::opentime
@@ -72,6 +71,7 @@ if(CMAKE_COMPILER_IS_GNUCXX AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
     list(APPEND LIBS_PUBLIC stdc++fs)
 endif()
 target_link_libraries(toucanRender PUBLIC ${LIBS_PUBLIC})
+target_link_libraries(toucanRender PUBLIC toucanResource)
 set_target_properties(toucanRender PROPERTIES FOLDER lib)
 set_target_properties(toucanRender PROPERTIES PUBLIC_HEADER "${HEADERS}")
 

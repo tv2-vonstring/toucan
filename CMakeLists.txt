@@ -12,6 +12,8 @@ if(toucan_VIEW)
     add_definitions(-Dtoucan_VIEW)
 endif()
 
+set(toucan_FFmpeg ON CACHE BOOL "Bundle FFmpeg shared libraries in the install/package")
+
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_CXX_STANDARD)
