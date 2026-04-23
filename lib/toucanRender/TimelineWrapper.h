@@ -8,9 +8,11 @@
 #include <opentimelineio/externalReference.h>
 #include <opentimelineio/timeline.h>
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <vector>
 
 namespace toucan
 {
@@ -36,11 +38,13 @@ namespace toucan
 
     private:
         MemoryReference _getMemoryReference(const std::string& url) const;
+        MemoryReference _getOrFetchMemoryRef(const std::string& url);
 
         std::filesystem::path _path;
         //std::filesystem::path _tmpPath;
         std::unique_ptr<MemoryMap> _memoryMap;
         MemoryReferences _memoryReferences;
+        std::map<std::string, std::shared_ptr<std::vector<uint8_t>>> _fetchedBytes;
         OTIO_NS::SerializableObject::Retainer<OTIO_NS::Timeline> _timeline;
         OTIO_NS::TimeRange _timeRange;
     };

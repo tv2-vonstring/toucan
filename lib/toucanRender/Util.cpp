@@ -59,6 +59,13 @@ namespace toucan
         ss << namePrefix <<
             std::setw(padding) << std::setfill('0') << frame <<
             nameSuffix;
+        const std::string baseStr = path.string();
+        if (isRemoteURL(baseStr))
+        {
+            // std::filesystem::path::operator/ mangles URLs; join plainly instead.
+            const bool trailing = !baseStr.empty() && baseStr.back() == '/';
+            return baseStr + (trailing ? "" : "/") + ss.str();
+        }
         return (path / ss.str()).string();
     }
 

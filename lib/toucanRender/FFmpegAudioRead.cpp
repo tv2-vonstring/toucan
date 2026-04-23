@@ -86,7 +86,8 @@ namespace toucan
                 nullptr);
             if (r < 0 || !_avFormatContext)
             {
-                throw std::runtime_error("Cannot open file");
+                throw std::runtime_error(
+                    "Cannot open '" + fileName + "': " + ffmpeg::getErrorLabel(r));
             }
 
             r = avformat_find_stream_info(_avFormatContext, nullptr);

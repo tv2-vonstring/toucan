@@ -18,6 +18,7 @@ set(HEADERS
     TimeWarp.h
     TimelineAlgo.h
     TimelineWrapper.h
+    URLFetch.h
     Util.h)
 set(HEADERS_PRIVATE)
 set(SOURCE
@@ -39,6 +40,7 @@ set(SOURCE
     TimeWarp.cpp
     TimelineAlgo.cpp
     TimelineWrapper.cpp
+    URLFetch.cpp
     Util.cpp)
 if(WIN32)
     list(APPEND SOURCE

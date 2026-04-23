@@ -3,6 +3,7 @@
 
 #include "TimelineWrapper.h"
 
+#include "URLFetch.h"
 #include "Util.h"
 
 #include <toucanRender/Read.h>
@@ -69,6 +70,45 @@ namespace toucan
     TimelineWrapper::TimelineWrapper(const std::filesystem::path& path) :
         _path(path)
     {
+        if (isRemoteURL(_path.string()))
+        {
+            const std::string urlExtension = ftk::toLower(
+                std::filesystem::path(stripURLQuery(_path.string())).extension().string());
+            if (hasExtension(urlExtension, MovieReadNode::getExtensions()))
+            {
+                // Synthesize a single-clip timeline pointing at the remote movie.
+                // FFmpeg streams the URL; no local resolution needed.
+                auto read = std::make_shared<MovieReadNode>(_path);
+                _timeline = OTIO_NS::SerializableObject::Retainer<OTIO_NS::Timeline>(new OTIO_NS::Timeline);
+                _timeline->set_global_start_time(read->getTimeRange().start_time());
+                OTIO_NS::SerializableObject::Retainer<OTIO_NS::Track> track(new OTIO_NS::Track("Video"));
+                _timeline->tracks()->append_child(track);
+                OTIO_NS::SerializableObject::Retainer<OTIO_NS::Clip> clip(new OTIO_NS::Clip);
+                track->append_child(clip);
+                OTIO_NS::SerializableObject::Retainer<OTIO_NS::ExternalReference> ref(
+                    new OTIO_NS::ExternalReference(_path.string()));
+                clip->set_media_reference(ref);
+                clip->set_source_range(read->getTimeRange());
+            }
+            else if (".otio" == urlExtension)
+            {
+                const std::vector<uint8_t> bytes = fetchURL(_path.string());
+                OTIO_NS::ErrorStatus errorStatus;
+                _timeline = OTIO_NS::SerializableObject::Retainer<OTIO_NS::Timeline>(
+                    dynamic_cast<OTIO_NS::Timeline*>(OTIO_NS::Timeline::from_json_string(
+                        std::string(bytes.begin(), bytes.end()), &errorStatus)));
+                if (!_timeline)
+                {
+                    throw std::runtime_error(errorStatus.full_description);
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Remote URL not supported for this extension: " + urlExtension);
+            }
+        }
+        else
+        {
         const std::string extension = ftk::toLower(_path.extension().string());
         if (".otio" == extension)
         {
@@ -218,6 +258,12 @@ namespace toucan
                             frame,
                             sequenceRef->frame_zero_padding(),
                             sequenceRef->name_suffix());
+                        if (isRemoteURL(url))
+                        {
+                            // Frame lives at a remote URL, not in this zip;
+                            // it'll be fetched lazily by SequenceReadNode.
+                            continue;
+                        }
                         const auto split = splitURLProtocol(url);
                         r = mz_zip_reader_locate_entry(zip.handle, split.second.c_str(), 0);
                         if (r != 0)
@@ -307,6 +353,7 @@ namespace toucan
         {
             throw std::runtime_error("Unrecognized file");
         }
+        }
 
         const auto globalStartTime = _timeline->global_start_time();
         _timeRange = OTIO_NS::TimeRange(
@@ -369,12 +416,13 @@ namespace toucan
             const std::string url = externalRef->target_url();
             // Pass http(s) URLs straight through so FFmpeg can open them directly.
             const std::string path = isRemoteURL(url) ? url : getMediaPath(url);
-            const MemoryReference mem = _getMemoryReference(url);
+            const MemoryReference mem = _getOrFetchMemoryRef(url);
             out = toucan::createReadNode(path, mem);
         }
         else if (auto seqRef = dynamic_cast<const OTIO_NS::ImageSequenceReference*>(ref))
         {
-            const std::string path = getMediaPath(seqRef->target_url_base());
+            const std::string base = seqRef->target_url_base();
+            const std::string path = isRemoteURL(base) ? base : getMediaPath(base);
             out = toucan::createReadNode(
                 path,
                 seqRef->name_prefix(),
@@ -383,7 +431,8 @@ namespace toucan
                 seqRef->frame_step(),
                 seqRef->rate(),
                 seqRef->frame_zero_padding(),
-                _memoryReferences);
+                _memoryReferences,
+                [this](const std::string& url) { return _getOrFetchMemoryRef(url); });
         }
         return out;
     }
@@ -392,5 +441,41 @@ namespace toucan
     {
         const auto i = _memoryReferences.find(url);
         return i != _memoryReferences.end() ? i->second : MemoryReference();
+    }
+
+    MemoryReference TimelineWrapper::_getOrFetchMemoryRef(const std::string& url)
+    {
+        // Zip-bundled media wins: already populated in the constructor.
+        const auto existing = _memoryReferences.find(url);
+        if (existing != _memoryReferences.end())
+        {
+            return existing->second;
+        }
+        if (!isRemoteURL(url))
+        {
+            return MemoryReference();
+        }
+        // Movies stream via FFmpeg directly — don't fetch into memory.
+        const std::string urlExt = ftk::toLower(
+            std::filesystem::path(stripURLQuery(url)).extension().string());
+        if (hasExtension(urlExt, MovieReadNode::getExtensions()))
+        {
+            return MemoryReference();
+        }
+        // Fetch once and cache.
+        const auto cached = _fetchedBytes.find(url);
+        std::shared_ptr<std::vector<uint8_t>> bytes;
+        if (cached != _fetchedBytes.end())
+        {
+            bytes = cached->second;
+        }
+        else
+        {
+            bytes = std::make_shared<std::vector<uint8_t>>(fetchURL(url));
+            _fetchedBytes[url] = bytes;
+        }
+        MemoryReference ref(bytes->data(), bytes->size());
+        _memoryReferences[url] = ref;
+        return ref;
     }
 }

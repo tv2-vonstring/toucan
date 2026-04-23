@@ -113,7 +113,8 @@ namespace toucan
         int frameStep,
         double rate,
         int frameZeroPadding,
-        const MemoryReferences& memoryReferences) :
+        const MemoryReferences& memoryReferences,
+        MemoryRefFetchFn fetchFn) :
         IReadNode("SequenceRead"),
         _base(base),
         _namePrefix(namePrefix),
@@ -122,7 +123,8 @@ namespace toucan
         _frameStep(frameStep),
         _rate(rate),
         _frameZeroPadding(frameZeroPadding),
-        _memoryReferences(memoryReferences)
+        _memoryReferences(memoryReferences),
+        _fetchFn(std::move(fetchFn))
     {
         // Get information from the first frame.
         const std::string url = getSequenceFrame(
@@ -131,11 +133,11 @@ namespace toucan
             _startFrame,
             _frameZeroPadding,
             _nameSuffix);
+        const MemoryReference mem = _lookup(url);
         std::unique_ptr<OIIO::Filesystem::IOMemReader> memoryReader;
-        const auto i = _memoryReferences.find(url);
-        if (i != _memoryReferences.end() && i->second.isValid())
+        if (mem.isValid())
         {
-            memoryReader = getMemoryReader(i->second);
+            memoryReader = getMemoryReader(mem);
         }
         if (auto input = OIIO::ImageInput::open(url, nullptr, memoryReader.get()))
         {
@@ -144,6 +146,25 @@ namespace toucan
         _timeRange = OTIO_NS::TimeRange(
             OTIO_NS::RationalTime(_startFrame, _rate),
             OTIO_NS::RationalTime(1.0, _rate));
+    }
+
+    MemoryReference SequenceReadNode::_lookup(const std::string& url)
+    {
+        const auto i = _memoryReferences.find(url);
+        if (i != _memoryReferences.end() && i->second.isValid())
+        {
+            return i->second;
+        }
+        if (_fetchFn)
+        {
+            MemoryReference ref = _fetchFn(url);
+            if (ref.isValid())
+            {
+                _memoryReferences[url] = ref;
+            }
+            return ref;
+        }
+        return MemoryReference();
     }
 
     SequenceReadNode::~SequenceReadNode()
@@ -172,11 +193,11 @@ namespace toucan
             _time.to_frames(),
             _frameZeroPadding,
             _nameSuffix);
+        const MemoryReference mem = _lookup(url);
         std::unique_ptr<OIIO::Filesystem::IOMemReader> memoryReader;
-        const auto i = _memoryReferences.find(url);
-        if (i != _memoryReferences.end() && i->second.isValid())
+        if (mem.isValid())
         {
-            memoryReader = getMemoryReader(i->second);
+            memoryReader = getMemoryReader(mem);
         }
         if (auto input = OIIO::ImageInput::open(url, nullptr, memoryReader.get()))
         {
@@ -369,7 +390,8 @@ namespace toucan
         int frameStep,
         double rate,
         int frameZeroPadding,
-        const MemoryReferences& mem)
+        const MemoryReferences& mem,
+        MemoryRefFetchFn fetchFn)
     {
         std::shared_ptr<IReadNode> out;
         if (hasExtension(nameSuffix, SequenceReadNode::getExtensions()))
@@ -382,7 +404,8 @@ namespace toucan
                 frameStep,
                 rate,
                 frameZeroPadding,
-                mem);
+                mem,
+                std::move(fetchFn));
         }
         return out;
 

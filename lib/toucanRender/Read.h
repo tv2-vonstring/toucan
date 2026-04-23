@@ -12,6 +12,7 @@
 #include <OpenImageIO/filesystem.h>
 
 #include <filesystem>
+#include <functional>
 
 namespace toucan
 {
@@ -54,6 +55,11 @@ namespace toucan
         std::unique_ptr<OIIO::ImageInput> _input;
     };
 
+    //! Callback used by SequenceReadNode to resolve a frame URL to bytes.
+    //! Returns an invalid MemoryReference for frames that should be opened
+    //! from the filesystem directly.
+    using MemoryRefFetchFn = std::function<MemoryReference(const std::string& url)>;
+
     //! Image sequence read node.
     class SequenceReadNode : public IReadNode
     {
@@ -66,7 +72,8 @@ namespace toucan
             int frameStep,
             double rate,
             int frameZeroPadding,
-            const MemoryReferences& = {});
+            const MemoryReferences& = {},
+            MemoryRefFetchFn = {});
 
         virtual ~SequenceReadNode();
 
@@ -77,6 +84,8 @@ namespace toucan
         static std::vector<std::string> getExtensions();
 
     private:
+        MemoryReference _lookup(const std::string& url);
+
         std::string _base;
         std::string _namePrefix;
         std::string _nameSuffix;
@@ -85,6 +94,7 @@ namespace toucan
         double _rate = 1.0;
         int _frameZeroPadding = 0;
         MemoryReferences _memoryReferences;
+        MemoryRefFetchFn _fetchFn;
     };
 
     //! SVG read node.
@@ -144,7 +154,8 @@ namespace toucan
         int frameStep,
         double rate,
         int frameZerPadding,
-        const MemoryReferences& = {});
+        const MemoryReferences& = {},
+        MemoryRefFetchFn = {});
 
     //! Is the extension in the list?
     bool hasExtension(
