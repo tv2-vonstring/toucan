@@ -26,6 +26,24 @@ namespace toucan
             return AVRational({ value.den, value.num });
         }
 
+        AVDictionary* buildRemoteAVOptions()
+        {
+            AVDictionary* opts = nullptr;
+            // Keep-alive across Range: requests on the inner http connection.
+            // Pairs with `cache:` URL wrapping to minimize re-opens.
+            av_dict_set(&opts, "multiple_requests", "1", 0);
+            av_dict_set(&opts, "reconnect", "1", 0);
+            av_dict_set(&opts, "reconnect_streamed", "1", 0);
+            av_dict_set(&opts, "reconnect_on_network_error", "1", 0);
+            av_dict_set(&opts, "reconnect_delay_max", "4", 0);
+            // rw_timeout is microseconds in ffmpeg.
+            av_dict_set(&opts, "rw_timeout", "30000000", 0);
+            av_dict_set(&opts, "timeout", "10000000", 0);
+            av_dict_set(&opts, "buffer_size", "1048576", 0);
+            av_dict_set(&opts, "protocol_whitelist", "cache,http,https,tcp,tls,file,crypto,data", 0);
+            return opts;
+        }
+
         namespace
         {
             std::vector<std::pair<int, std::string> > _getVideoCodecs()

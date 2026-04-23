@@ -3,6 +3,8 @@
 
 #include "FFmpegRead.h"
 
+#include "Util.h"
+
 #include <ftk/Core/String.h>
 
 #include <iostream>
@@ -77,12 +79,24 @@ namespace toucan
                 _avFormatContext->pb = _avIOContext;
             }
 
-            const std::string fileName = path.string();
+            const std::string rawPath = path.string();
+            const bool remote = !memoryReference.isValid() && isRemoteURL(rawPath);
+            // Wrap remote URLs in FFmpeg's `cache:` protocol. It opens the
+            // inner https URL once, streams bytes into a tempfile that is
+            // unlinked immediately, and serves seeks within already-read
+            // regions from the tempfile — bypassing FFmpeg's http_seek,
+            // which otherwise tears down TCP+TLS on every seek.
+            const std::string fileName = remote ? ("cache:" + rawPath) : rawPath;
+            AVDictionary* openOptions = remote ? buildRemoteAVOptions() : nullptr;
             int r = avformat_open_input(
                 &_avFormatContext,
                 !_avFormatContext ? fileName.c_str() : nullptr,
                 nullptr,
-                nullptr);
+                openOptions ? &openOptions : nullptr);
+            if (openOptions)
+            {
+                av_dict_free(&openOptions);
+            }
             if (r < 0 || !_avFormatContext)
             {
                 throw std::runtime_error(

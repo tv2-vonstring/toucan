@@ -9,6 +9,7 @@
 extern "C"
 {
 #include <libavcodec/avcodec.h>
+#include <libavutil/dict.h>
 #include <libavutil/log.h>
 #include <libavutil/rational.h>
 #include <libavutil/samplefmt.h>
@@ -20,6 +21,14 @@ namespace toucan
     {
         //! Swap the numerator and denominator.
         AVRational swap(AVRational);
+
+        //! Build an AVDictionary of AVFormat options tuned for opening
+        //! an http(s) URL: HTTP keep-alive across Range: requests,
+        //! reconnect on transient errors, larger read buffer. Caller
+        //! owns the returned dictionary and must free it with
+        //! `av_dict_free` (pass-through ownership into
+        //! `avformat_open_input` consumes it).
+        AVDictionary* buildRemoteAVOptions();
 
         //! Video codecs.
         enum class VideoCodec
