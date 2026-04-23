@@ -343,15 +343,18 @@ namespace toucan
         const MemoryReference& mem)
     {
         std::shared_ptr<IReadNode> out;
-        if (hasExtension(path.extension().string(), MovieReadNode::getExtensions()))
+        // Extension detection must ignore any URL query/fragment (e.g. ?token=...).
+        const std::string extension =
+            std::filesystem::path(stripURLQuery(path.string())).extension().string();
+        if (hasExtension(extension, MovieReadNode::getExtensions()))
         {
             out = std::make_shared<MovieReadNode>(path, mem);
         }
-        else if (hasExtension(path.extension().string(), ImageReadNode::getExtensions()))
+        else if (hasExtension(extension, ImageReadNode::getExtensions()))
         {
             out = std::make_shared<ImageReadNode>(path, mem);
         }
-        else if (hasExtension(path.extension().string(), SVGReadNode::getExtensions()))
+        else if (hasExtension(extension, SVGReadNode::getExtensions()))
         {
             out = std::make_shared<SVGReadNode>(path, mem);
         }

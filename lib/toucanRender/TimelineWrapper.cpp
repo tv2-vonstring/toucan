@@ -366,8 +366,10 @@ namespace toucan
         std::shared_ptr<IReadNode> out;
         if (auto externalRef = dynamic_cast<const OTIO_NS::ExternalReference*>(ref))
         {
-            const std::string path = getMediaPath(externalRef->target_url());
-            const MemoryReference mem = _getMemoryReference(externalRef->target_url());
+            const std::string url = externalRef->target_url();
+            // Pass http(s) URLs straight through so FFmpeg can open them directly.
+            const std::string path = isRemoteURL(url) ? url : getMediaPath(url);
+            const MemoryReference mem = _getMemoryReference(url);
             out = toucan::createReadNode(path, mem);
         }
         else if (auto seqRef = dynamic_cast<const OTIO_NS::ImageSequenceReference*>(ref))

@@ -258,8 +258,11 @@ namespace toucan
                 {
                     try
                     {
-                        const std::string mediaPath =
-                            _timelineWrapper->getMediaPath(externalRef->target_url());
+                        // Pass http(s) URLs straight through so FFmpeg can open them directly.
+                        const std::string url = externalRef->target_url();
+                        const std::string mediaPath = isRemoteURL(url) ?
+                            url :
+                            _timelineWrapper->getMediaPath(url);
                         audioRead = std::make_shared<ffmpeg::AudioRead>(
                             mediaPath, _sampleRate, _channelCount);
                         _audioReadCache.add(externalRef, audioRead);

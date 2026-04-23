@@ -19,6 +19,12 @@ namespace toucan
     //! Split the URL protocol.
     std::pair<std::string, std::string> splitURLProtocol(const std::string&);
 
+    //! Return true if the URL is a remote http(s) URL.
+    bool isRemoteURL(const std::string&);
+
+    //! Strip the query and fragment from a URL (everything from '?' or '#' onward).
+    std::string stripURLQuery(const std::string&);
+
     //! Get an image sequence file name.
     std::string getSequenceFrame(
         const std::filesystem::path&,

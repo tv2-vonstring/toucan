@@ -36,6 +36,18 @@ namespace toucan
         return out;
     }
 
+    bool isRemoteURL(const std::string& url)
+    {
+        const std::string lower = toLower(splitURLProtocol(url).first);
+        return lower == "http:/" || lower == "https:/";
+    }
+
+    std::string stripURLQuery(const std::string& url)
+    {
+        const size_t pos = url.find_first_of("?#");
+        return pos == std::string::npos ? url : url.substr(0, pos);
+    }
+
     std::string getSequenceFrame(
         const std::filesystem::path& path,
         const std::string& namePrefix,
